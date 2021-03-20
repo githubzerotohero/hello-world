@@ -1,0 +1,62 @@
+name: DotNetCore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:     
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.100
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --no-restore --verbosity normal
+
+      - name: Dotnet Publish
+        run: dotnet publish --configuration Release -o ${{ github.workspace }}/demo 
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: app
+          path: ${{ github.workspace }}//demo
+
+
+  deploy-dev-app:
+     name: Deploy Dev App
+     runs-on: ubuntu-latest
+
+     environment:
+       name: dev 
+       
+     needs: build
+     steps:
+       - name: Download App
+         uses: actions/download-artifact@v2
+         with:
+           name: app
+           path: ${{ github.workspace }}//app
+
+       - name: Azure Login
+         uses: azure/login@v1
+         with:
+           creds: ${{ secrets.AZURE_CREDENTIALS }}
+            
+       - name: 'Run Azure webapp deploy action using publish profile credentials'
+         uses: azure/webapps-deploy@v2
+         id: app-web
+         with: 
+           app-name: 'ghzero' 
+           package: '${{ github.workspace }}//app'
